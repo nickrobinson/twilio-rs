@@ -1,4 +1,4 @@
-use crate::{Client, FromMap, TwilioError, POST};
+use crate::{Client, FromMap, TwilioError, GET, POST};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -62,6 +62,11 @@ impl Client {
         }
 
         self.send_request(POST, "Calls", &opts).await
+    }
+
+    pub async fn retrieve_call(&self, sid: &str) -> Result<Call, TwilioError> {
+        let opts = [("Sid", sid)];
+        self.send_request(GET, "Calls", &opts).await
     }
 }
 
