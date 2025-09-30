@@ -32,7 +32,7 @@ impl<'a> OutboundCall<'a> {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum CallStatus {
     Queued,
     Ringing,

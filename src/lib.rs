@@ -3,7 +3,7 @@ mod message;
 pub mod twiml;
 mod webhook;
 
-pub use call::{Call, OutboundCall};
+pub use call::{Call, CallStatus, OutboundCall};
 use headers::authorization::{Authorization, Basic};
 use headers::{ContentType, HeaderMapExt};
 use hyper::client::connect::HttpConnector;
@@ -117,8 +117,6 @@ impl Client {
 
         // Now create the request with body
         let req = req_builder.body(body).unwrap();
-
-        println!("{req:?}");
 
         let resp = self
             .http_client
