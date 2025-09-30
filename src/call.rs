@@ -65,8 +65,7 @@ impl Client {
     }
 
     pub async fn retrieve_call(&self, sid: &str) -> Result<Call, TwilioError> {
-        let opts = [("Sid", sid)];
-        self.send_request(GET, "Calls", &opts).await
+        self.send_request(GET, &format!("Calls/{sid}"), &[]).await
     }
 }
 

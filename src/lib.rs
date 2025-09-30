@@ -89,22 +89,36 @@ impl Client {
     where
         T: serde::de::DeserializeOwned,
     {
-        let url = format!(
+        let mut url = format!(
             "https://api.twilio.com/2010-04-01/Accounts/{}/{}.json",
             self.account_id, endpoint
         );
 
+        let body = if method == hyper::Method::GET {
+            if !params.is_empty() {
+                url.push('?');
+                url.push_str(&url_encode(params));
+            }
+            Body::empty()
+        } else {
+            Body::from(url_encode(params))
+        };
+
         // Build request with headers BEFORE setting the body
-        let mut req_builder = hyper::Request::builder().method(method).uri(&*url);
+        let mut req_builder = hyper::Request::builder().method(method.clone()).uri(&*url);
 
         // Get mutable reference to headers before body is set
         let headers = req_builder.headers_mut().unwrap();
-        let mime: mime::Mime = "application/x-www-form-urlencoded".parse().unwrap();
-        headers.typed_insert(ContentType::from(mime));
+        if method != hyper::Method::GET {
+            let mime: mime::Mime = "application/x-www-form-urlencoded".parse().unwrap();
+            headers.typed_insert(ContentType::from(mime));
+        }
         headers.typed_insert(self.auth_header.clone());
 
         // Now create the request with body
-        let req = req_builder.body(Body::from(url_encode(params))).unwrap();
+        let req = req_builder.body(body).unwrap();
+
+        println!("{req:?}");
 
         let resp = self
             .http_client
