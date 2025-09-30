@@ -2,15 +2,32 @@ use crate::{Client, FromMap, TwilioError, POST};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
+pub enum CallInstructions<'a> {
+    Url(&'a str),
+    Twiml(&'a str),
+}
+
 pub struct OutboundCall<'a> {
     pub from: &'a str,
     pub to: &'a str,
-    pub url: &'a str,
+    pub instructions: CallInstructions<'a>,
 }
 
 impl<'a> OutboundCall<'a> {
     pub fn new(from: &'a str, to: &'a str, url: &'a str) -> OutboundCall<'a> {
-        OutboundCall { from, to, url }
+        OutboundCall {
+            from,
+            to,
+            instructions: CallInstructions::Url(url),
+        }
+    }
+
+    pub fn new_with_twiml(from: &'a str, to: &'a str, twiml: &'a str) -> OutboundCall<'a> {
+        OutboundCall {
+            from,
+            to,
+            instructions: CallInstructions::Twiml(twiml),
+        }
     }
 }
 
@@ -37,11 +54,13 @@ pub struct Call {
 
 impl Client {
     pub async fn make_call(&self, call: OutboundCall<'_>) -> Result<Call, TwilioError> {
-        let opts = [
-            ("To", &*call.to),
-            ("From", &*call.from),
-            ("Url", &*call.url),
-        ];
+        let mut opts = vec![("To", call.to), ("From", call.from)];
+
+        match &call.instructions {
+            CallInstructions::Url(url) => opts.push(("Url", url)),
+            CallInstructions::Twiml(twiml) => opts.push(("Twiml", twiml)),
+        }
+
         self.send_request(POST, "Calls", &opts).await
     }
 }

@@ -49,7 +49,7 @@ impl Display for TwilioError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match *self {
             TwilioError::NetworkError(ref e) => e.fmt(f),
-            TwilioError::HTTPError(ref s) => write!(f, "Invalid HTTP status code: {}", s),
+            TwilioError::HTTPError(ref s) => write!(f, "Invalid HTTP status code: {s}"),
             TwilioError::ParsingError => f.write_str("Parsing error"),
             TwilioError::AuthError => f.write_str("Missing `X-Twilio-Signature` header in request"),
             TwilioError::BadRequest => f.write_str("Bad request"),
@@ -93,15 +93,18 @@ impl Client {
             "https://api.twilio.com/2010-04-01/Accounts/{}/{}.json",
             self.account_id, endpoint
         );
-        let mut req = hyper::Request::builder()
-            .method(method)
-            .uri(&*url)
-            .body(Body::from(url_encode(params)))
-            .unwrap();
 
+        // Build request with headers BEFORE setting the body
+        let mut req_builder = hyper::Request::builder().method(method).uri(&*url);
+
+        // Get mutable reference to headers before body is set
+        let headers = req_builder.headers_mut().unwrap();
         let mime: mime::Mime = "application/x-www-form-urlencoded".parse().unwrap();
-        req.headers_mut().typed_insert(ContentType::from(mime));
-        req.headers_mut().typed_insert(self.auth_header.clone());
+        headers.typed_insert(ContentType::from(mime));
+        headers.typed_insert(self.auth_header.clone());
+
+        // Now create the request with body
+        let req = req_builder.body(Body::from(url_encode(params))).unwrap();
 
         let resp = self
             .http_client
@@ -111,7 +114,15 @@ impl Client {
 
         match resp.status() {
             StatusCode::CREATED | StatusCode::OK => {}
-            other => return Err(TwilioError::HTTPError(other)),
+            other => {
+                // Try to get error details from response body
+                if let Ok(body_bytes) = hyper::body::to_bytes(resp.into_body()).await {
+                    if let Ok(error_text) = std::str::from_utf8(&body_bytes) {
+                        println!("Twilio error response: {error_text}");
+                    }
+                }
+                return Err(TwilioError::HTTPError(other));
+            }
         };
 
         let decoded: T = hyper::body::to_bytes(resp.into_body())
